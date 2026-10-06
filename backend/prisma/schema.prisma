@@ -1,0 +1,143 @@
+generator client {
+  provider     = "prisma-client"
+  output       = "../generated/prisma"
+  moduleFormat = "cjs"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+enum OpportunityStatus {
+  draft
+  open
+  closed
+}
+
+enum ApplicationStatus {
+  pending
+  approved
+  rejected
+  cancelled
+}
+
+enum TaskStatus {
+  todo
+  in_progress
+  completed
+}
+
+enum TaskPriority {
+  low
+  medium
+  high
+}
+
+model ResearchOpportunity {
+  id                  String                @id @default(uuid()) @db.Uuid
+  coreUserId          String                @map("core_user_id")
+  researchTitle       String                @map("research_title")
+  description         String
+  responsibilities    String
+  positions           Int
+  requiredSkills      String[]              @map("required_skills")
+  startDate           DateTime              @map("start_date") @db.Timestamptz(3)
+  endDate             DateTime              @map("end_date") @db.Timestamptz(3)
+  applicationDeadline DateTime              @map("application_deadline") @db.Timestamptz(3)
+  faculty             String                @map("faculty_code")
+  status              OpportunityStatus     @default(draft)
+  createdAt           DateTime              @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime              @updatedAt @map("updated_at") @db.Timestamptz(3)
+  applications        ResearchApplication[]
+  assistants          ResearchAssistant[]
+
+  @@index([coreUserId])
+  @@index([status, applicationDeadline])
+  @@map("research_opportunities")
+}
+
+model ResearchApplication {
+  id                    String              @id @default(uuid()) @db.Uuid
+  researchOpportunityId String              @map("research_opportunity_id") @db.Uuid
+  coreUserId            String              @map("core_user_id")
+  reason                String
+  skills                String[]
+  experience            String?
+  status                ApplicationStatus   @default(pending)
+  createdAt             DateTime            @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime            @updatedAt @map("updated_at") @db.Timestamptz(3)
+  opportunity           ResearchOpportunity @relation(fields: [researchOpportunityId], references: [id], onDelete: Restrict)
+  assistant             ResearchAssistant?
+
+  @@unique([researchOpportunityId, coreUserId])
+  @@index([coreUserId])
+  @@map("research_applications")
+}
+
+model ResearchAssistant {
+  id                    String               @id @default(uuid()) @db.Uuid
+  researchOpportunityId String               @map("research_opportunity_id") @db.Uuid
+  researchApplicationId String               @unique @map("research_application_id") @db.Uuid
+  coreUserId            String               @map("core_user_id")
+  responsibilities      String
+  createdAt             DateTime             @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt             DateTime             @updatedAt @map("updated_at") @db.Timestamptz(3)
+  opportunity           ResearchOpportunity  @relation(fields: [researchOpportunityId], references: [id], onDelete: Restrict)
+  application           ResearchApplication  @relation(fields: [researchApplicationId], references: [id], onDelete: Restrict)
+  tasks                 ResearchTask[]
+  evaluations           ResearchEvaluation[]
+
+  @@unique([researchOpportunityId, coreUserId])
+  @@index([coreUserId])
+  @@map("research_assistants")
+}
+
+model ResearchTask {
+  id                  String            @id @default(uuid()) @db.Uuid
+  researchAssistantId String            @map("research_assistant_id") @db.Uuid
+  taskTitle           String            @map("task_title")
+  description         String
+  dueDate             DateTime          @map("due_date") @db.Timestamptz(3)
+  priority            TaskPriority      @default(medium)
+  status              TaskStatus        @default(todo)
+  createdAt           DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+  assistant           ResearchAssistant @relation(fields: [researchAssistantId], references: [id], onDelete: Restrict)
+  reports             ProgressReport[]
+
+  @@index([researchAssistantId])
+  @@map("research_tasks")
+}
+
+model ProgressReport {
+  id                 String       @id @default(uuid()) @db.Uuid
+  researchTaskId     String       @map("research_task_id") @db.Uuid
+  coreUserId         String       @map("core_user_id")
+  progressPercentage Int          @map("progress_percentage")
+  progressDetail     String       @map("progress_detail")
+  problems           String?
+  nextAction         String?      @map("next_action")
+  createdAt          DateTime     @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt          DateTime     @updatedAt @map("updated_at") @db.Timestamptz(3)
+  task               ResearchTask @relation(fields: [researchTaskId], references: [id], onDelete: Restrict)
+
+  @@index([researchTaskId, createdAt])
+  @@map("progress_reports")
+}
+
+model ResearchEvaluation {
+  id                  String            @id @default(uuid()) @db.Uuid
+  researchAssistantId String            @map("research_assistant_id") @db.Uuid
+  coreUserId          String            @map("core_user_id")
+  responsibilityScore Int               @map("responsibility_score")
+  qualityScore        Int               @map("quality_score")
+  punctualityScore    Int               @map("punctuality_score")
+  teamworkScore       Int               @map("teamwork_score")
+  comment             String?
+  createdAt           DateTime          @default(now()) @map("created_at") @db.Timestamptz(3)
+  updatedAt           DateTime          @updatedAt @map("updated_at") @db.Timestamptz(3)
+  assistant           ResearchAssistant @relation(fields: [researchAssistantId], references: [id], onDelete: Restrict)
+
+  @@index([researchAssistantId])
+  @@map("research_evaluations")
+}
