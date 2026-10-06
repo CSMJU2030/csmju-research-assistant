@@ -20,7 +20,7 @@ probes:
   invalid_id: /api/v1/<resources>/not-a-uuid
   create:
     path: /api/v1/<resources>
-    allowed_role: staff
+    allowed_role: lecturer
     denied_role: student
     invalid_body:
       someRequiredField: ""
