@@ -5,9 +5,9 @@ name: csmju-research-assistant          # ต้องตรงกับทะ�
 standards_version: "1.0.0"
 conformance_level: L3                 # L1 · L2 · L3 (ระบบที่มี UI ต้องถึง L3)
 
-base_url: http://localhost:3002       # URL ของระบบย่อยตอนรันเพื่อทดสอบ
-core_hub_url: http://localhost:3000
-callback_path: /auth/callback         # ต้องตรงกับ callback_url ที่ลงทะเบียนไว้
+base_url: http://localhost:5026
+core_hub_url: https://csmju2030.jowave.com
+callback_path: /auth/callback
 
 public_endpoints:
   - GET /api/health
@@ -20,7 +20,7 @@ probes:
   invalid_id: /api/v1/<resources>/not-a-uuid
   create:
     path: /api/v1/<resources>
-    allowed_role: staff
+    allowed_role: lecturer
     denied_role: student
     invalid_body:
       someRequiredField: ""

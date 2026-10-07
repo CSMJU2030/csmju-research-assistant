@@ -71,7 +71,7 @@ describe("Research ownership and lifecycle", () => {
         count: jest.fn().mockResolvedValue(0),
         findMany: jest.fn().mockResolvedValue([]),
       },
-      progressReport: { create: jest.fn(), findMany: jest.fn().mockResolvedValue([]), count: jest.fn().mockResolvedValue(0) },
+      progressReport: { findFirst: jest.fn().mockResolvedValue(null), create: jest.fn(), findMany: jest.fn().mockResolvedValue([]), count: jest.fn().mockResolvedValue(0) },
       researchEvaluation: { create: jest.fn(), findMany: jest.fn().mockResolvedValue([]), count: jest.fn().mockResolvedValue(0) },
       $transaction: jest.fn(),
     };
@@ -235,6 +235,85 @@ describe("Research ownership and lifecycle", () => {
         progressDetail: "Working",
       }),
     ).rejects.toMatchObject({ status: 403 });
+  });
+  it("rejects a progress report that lowers the latest percentage", async () => {
+    tx.researchTask.findUnique.mockResolvedValue({
+      id: "task",
+      status: "in_progress",
+      assistant: { coreUserId: student.id },
+    });
+    tx.progressReport.findFirst.mockResolvedValue({ progressPercentage: 60 });
+
+    await expect(
+      service.createReport(student, {
+        researchTaskId: "task",
+        progressPercentage: 59,
+        progressDetail: "Working",
+      }),
+    ).rejects.toMatchObject({ status: 409 });
+    expect(tx.progressReport.create).not.toHaveBeenCalled();
+  });
+  it("allows a progress report at or above the latest percentage", async () => {
+    tx.researchTask.findUnique.mockResolvedValue({
+      id: "task",
+      status: "in_progress",
+      assistant: { coreUserId: student.id },
+    });
+    tx.progressReport.findFirst.mockResolvedValue({ progressPercentage: 60 });
+    tx.progressReport.create.mockResolvedValue({ id: "report" });
+
+    await expect(
+      service.createReport(student, {
+        researchTaskId: "task",
+        progressPercentage: 60,
+        progressDetail: "Working",
+      }),
+    ).resolves.toEqual({ id: "report" });
+  });
+  it("does not allow a report after a task is completed", async () => {
+    tx.researchTask.findUnique.mockResolvedValue({
+      id: "task",
+      status: "completed",
+      assistant: { coreUserId: student.id },
+    });
+
+    await expect(
+      service.createReport(student, {
+        researchTaskId: "task",
+        progressPercentage: 100,
+        progressDetail: "Done",
+      }),
+    ).rejects.toMatchObject({ status: 409 });
+    expect(tx.progressReport.create).not.toHaveBeenCalled();
+  });
+  it("requires a 100 percent report before a manager completes a task", async () => {
+    tx.researchTask.findUnique.mockResolvedValue({
+      id: "task",
+      status: "in_progress",
+      assistant: { coreUserId: student.id, opportunity },
+    });
+    tx.progressReport.findFirst.mockResolvedValue({ progressPercentage: 99 });
+
+    await expect(
+      service.updateTask(staff, "task", { status: "completed" }),
+    ).rejects.toMatchObject({ status: 400 });
+    expect(tx.researchTask.update).not.toHaveBeenCalled();
+  });
+  it("allows completing a task when its latest report is 100 percent", async () => {
+    tx.researchTask.findUnique.mockResolvedValue({
+      id: "task",
+      status: "in_progress",
+      assistant: { coreUserId: student.id, opportunity },
+    });
+    tx.progressReport.findFirst.mockResolvedValue({ progressPercentage: 100 });
+
+    await service.updateTask(staff, "task", { status: "completed" });
+    expect(tx.researchTask.update).toHaveBeenCalledWith(
+      expect.objectContaining({
+        where: { id: "task" },
+        data: expect.objectContaining({ status: "completed" }),
+      }),
+    );
   });
   it("scopes application lists to the student", async () => {
     await service.applications(student, new QueryDto());

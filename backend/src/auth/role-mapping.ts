@@ -17,7 +17,6 @@ import { SubsystemRole } from './core-hub-identity';
  */
 export const CORE_ROLE_TO_SUBSYSTEM_ROLE: Readonly<Record<string, SubsystemRole>> = Object.freeze({
   student: SubsystemRole.STUDENT,
-  staff: SubsystemRole.STAFF,
   lecturer: SubsystemRole.STAFF,
   admin: SubsystemRole.ADMIN,
 });

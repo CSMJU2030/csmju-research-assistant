@@ -442,6 +442,18 @@ export class ResearchService {
       }
       if (!Object.keys(d).length)
         throw validation("กรุณาระบุข้อมูลที่ต้องการแก้ไข", "status");
+      if (d.status === "completed") {
+        const latestReport = await tx.progressReport.findFirst({
+          where: { researchTaskId: item.id },
+          orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+          select: { progressPercentage: true },
+        });
+        if (latestReport?.progressPercentage !== 100)
+          throw validation(
+            "ส่งรายงานความคืบหน้าให้ถึง 100% ก่อนปิดงาน",
+            "status",
+          );
+      }
       const next = d.researchAssistantId
         ? await this.assistant(tx, d.researchAssistantId)
         : item.assistant;
@@ -497,6 +509,22 @@ export class ResearchService {
       if (!task) throw AppException.notFound("ไม่พบงานที่มอบหมาย");
       if (task.assistant.coreUserId !== u.id)
         throw AppException.forbidden("รายงานได้เฉพาะงานที่ตนได้รับมอบหมาย");
+      if (task.status === "completed")
+        throw AppException.conflict(
+          "งานเสร็จสิ้นแล้ว ไม่สามารถส่งรายงานความคืบหน้าเพิ่มได้",
+        );
+      const latestReport = await tx.progressReport.findFirst({
+        where: { researchTaskId: task.id },
+        orderBy: [{ createdAt: "desc" }, { id: "desc" }],
+        select: { progressPercentage: true },
+      });
+      if (
+        latestReport &&
+        d.progressPercentage < latestReport.progressPercentage
+      )
+        throw AppException.conflict(
+          `เปอร์เซ็นต์ความคืบหน้าต้องไม่ลดลงจาก ${latestReport.progressPercentage}%`,
+        );
       return tx.progressReport.create({ data: { ...d, coreUserId: u.id } });
     });
   }
